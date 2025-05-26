@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Messages App</title>
+</head>
+<body>
+  <h1>Messages</h1>
+  <input id="msg" placeholder="Type a message">
+  <button onclick="send()">Send</button>
+  <button onclick="removeNewest()">Remove Newest</button>
+  <ul id="list"></ul>
+<script>
+  const API_URL = '/api/messages';
+  let editingId = null;
+  let editingText = '';
+
+  async function send() {
+    const text = document.getElementById('msg').value;
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text})
+    });
+    document.getElementById('msg').value = '';
+    load();
+  }
+
+  async function removeNewest() {
+    await fetch(API_URL + '/newest', { method: 'DELETE' });
+    load();
+  }
+
+  function startEdit(id, text) {
+    editingId = id;
+    editingText = text;
+    load();
+  }
+
+  function handleEditInput(e) {
+    editingText = e.target.value;
+  }
+
+  async function saveEdit(id) {
+    await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text: editingText })
+    });
+    editingId = null;
+    editingText = '';
+    load();
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    editingText = '';
+    load();
+  }
+
+  async function load() {
+    const res = await fetch(API_URL);
+    const msgs = await res.json();
+    document.getElementById('list').innerHTML =
+      msgs.map(m => {
+        if (m._id === editingId) {
+          return `<li>
+            <input type="text" value="${editingText.replace(/"/g, '&quot;')}" oninput="handleEditInput(event)">
+            <button onclick="saveEdit('${m._id}')">Save</button>
+            <button onclick="cancelEdit()">Cancel</button>
+          </li>`;
+        } else {
+          return `<li>
+            ${m.text}
+            <button onclick="startEdit('${m._id}', '${m.text.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')">Edit</button>
+          </li>`;
+        }
+      }).join('');
+  }
+  load();
+
+  // Make functions global for inline HTML event handlers
+  window.startEdit = startEdit;
+  window.handleEditInput = handleEditInput;
+  window.saveEdit = saveEdit;
+  window.cancelEdit = cancelEdit;
+</script>
+</body>
+</html>
